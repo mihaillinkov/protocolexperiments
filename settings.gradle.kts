@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "protocols"
-include("app", "list", "utilities")
+include("http", "utilities")
