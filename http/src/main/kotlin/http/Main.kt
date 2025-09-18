@@ -10,38 +10,42 @@ import kotlin.time.measureTime
 
 
 const val DEFAULT_PORT = 8080
-const val INPUT_PARALLELISM = 16
 const val END_OF_LINE = 13
 
+const val PROCESSOR_NUMBER = 2
+
 val logger = LoggerFactory.getLogger("main")
-
-val requestProcessorIoDispatcher = Dispatchers.IO.limitedParallelism(INPUT_PARALLELISM)
-
 
 fun main(vararg args: String) = runBlocking {
     val port = args.getOrNull(0)?.toInt() ?: DEFAULT_PORT
 
-    val server = ServerSocket(port)
     var requestCounter = 0
 
-    val channel = Channel<Socket>()
+    val server = ServerSocket(port)
+    val channel = Channel<Pair<Socket, Long>>(PROCESSOR_NUMBER)
 
-    launch {
-        while (true) {
-            val socket = channel.receive()
-            launch(requestProcessorIoDispatcher) {
-                val requestId = requestCounter++
+    repeat(PROCESSOR_NUMBER) {
+        launch {
+            for ((socket, receivedAt) in channel) {
+                val requestId = ++requestCounter
                 val processingDuration = measureTime {
                     processSocket(socket)
                 }
-                logger.info("Request#{} complete, took {} microseconds", requestId, processingDuration.inWholeMilliseconds)
+                logger.info(
+                    "Request#{} complete, Processing took {} microseconds, totalTime {}",
+                    requestId,
+                    processingDuration.inWholeMilliseconds,
+                    System.currentTimeMillis() - receivedAt
+                )
             }
         }
     }
 
     withContext(Dispatchers.IO) {
         while (true) {
-            channel.send(server.accept())
+            val socket = server.accept()
+            val receivedAt = System.currentTimeMillis()
+            channel.send(socket to receivedAt)
         }
     }
 }
@@ -49,7 +53,8 @@ fun main(vararg args: String) = runBlocking {
 suspend fun processSocket(socket: Socket) = supervisorScope {
     socket.use { socket ->
         val request = buildRequestObject(socket.getInputStream())
-
+        logger.info("Processing request: $request")
+        delay(10000)
         val response = try {
              processRequest(request)
         } catch (e: Exception) {
@@ -79,7 +84,7 @@ fun buildResponse(response: HttpResponse) =
     "${buildResponseFirstLine(response)}\n${response.headers.joinToString("\n")}\n${response.body}".toByteArray()
 
 fun buildResponseFirstLine(response: HttpResponse): String {
-    return "HTTP/1.1 ${response.status.status} ${response.status.statusMessage}"
+    return "HTTP/1.1 ${response.status.status} ${response.status.statusMessage}\nContent-Length: 0\n"
 }
 
 fun buildRequestObject(inputStream: InputStream): Request {
