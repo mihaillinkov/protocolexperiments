@@ -1,5 +1,6 @@
 package http
 
+import kotlinx.coroutines.CancellationException
 import java.io.InputStream
 
 private val END_OF_LINE = listOf(13, 10)
@@ -30,6 +31,9 @@ fun readLines(inputStream: InputStream): List<ByteArray> {
     val res = mutableListOf<Int>()
     while (true) {
         val byte = inputStream.read()
+        if (byte == -1) {
+            throw CancellationException()
+        }
         res.add(byte)
         if (res.takeLast(END_OF_LINE.size * 2) == listOf(END_OF_LINE, END_OF_LINE).flatten()) break
     }

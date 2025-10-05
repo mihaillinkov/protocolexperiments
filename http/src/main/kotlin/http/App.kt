@@ -27,7 +27,7 @@ private val logger = LoggerFactory.getLogger(App::class.java)
 
 private val ARTIFICIAL_DELAY = Duration.parse("1s")
 
-private val INPUT_READER_DISPATCHER = Dispatchers.IO.limitedParallelism(256)
+private val INPUT_READER_DISPATCHER = Dispatchers.IO
 
 class App(private val config: Config) {
     @OptIn(ExperimentalAtomicApi::class)
@@ -80,7 +80,7 @@ suspend fun processSocket(socket: Socket, requestTimeout: Long) {
                 processRequest(request)
             } catch (e: Exception) {
                 logger.error("Exception while processing request", e)
-                HttpResponse(ResponseStatus(SERVER_ERROR, "SOME_ERROR"))
+                HttpResponse(ResponseStatus(SERVER_ERROR, e.message))
             }
         }
 
@@ -100,5 +100,5 @@ fun processRequest(request: Request): HttpResponse {
     return HttpResponse(
         status = status,
         body = body,
-        headers = listOf("Content-Length: ${body.toByteArray().size}", "hello: world"))
+        headers = listOf("test-header: test-1"))
 }
