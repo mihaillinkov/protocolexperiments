@@ -1,9 +1,9 @@
 package http
 
 import kotlinx.coroutines.CancellationException
-import java.io.InputStream
+import java.nio.channels.AsynchronousSocketChannel
 
-private val END_OF_LINE = listOf(13, 10)
+private val END_OF_LINE = listOf(13.toByte(), 10.toByte())
 
 data class Request(
     val method: RequestMethod,
@@ -15,7 +15,7 @@ enum class RequestMethod {
     GET, POST, PUT, DELETE
 }
 
-fun buildRequestObject(inputStream: InputStream): Request {
+suspend fun buildRequestObject(inputStream: AsynchronousSocketChannel): Request {
     val requestLines = readLines(inputStream)
     val firstLine = String(requestLines[0]).split(" ")
 
@@ -27,20 +27,18 @@ fun buildRequestObject(inputStream: InputStream): Request {
     return Request(RequestMethod.valueOf(method), url, headers)
 }
 
-fun readLines(inputStream: InputStream): List<ByteArray> {
-    val res = mutableListOf<Int>()
+suspend fun readLines(inputStream: AsynchronousSocketChannel): List<ByteArray> {
+    val res = mutableListOf<Byte>()
+
     while (true) {
-        val byte = inputStream.read()
-        if (byte == -1) {
-            throw CancellationException()
-        }
+        val byte = inputStream.readAwait() ?: throw CancellationException()
         res.add(byte)
         if (res.takeLast(END_OF_LINE.size * 2) == listOf(END_OF_LINE, END_OF_LINE).flatten()) break
     }
-    return res.split(END_OF_LINE).map { it.map (Int::toByte).toByteArray() }
+    return res.split(END_OF_LINE).map { it.toByteArray() }
 }
 
-fun <T> List<T>.split(separator: List<Int>): List<List<T>> {
+fun <T> List<T>.split(separator: List<Byte>): List<List<T>> {
     val res = mutableListOf<List<T>>()
 
     var current = mutableListOf<T>()
