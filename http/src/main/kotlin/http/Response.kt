@@ -24,7 +24,8 @@ fun buildHttpResponse(response: HttpResponse): ByteArray {
 
     val headers = (response.headers + commonHeaders).joinToString(LINE_BREAK)
 
-    return "${buildResponseFirstLine(response)}$LINE_BREAK$headers$LINE_BREAK$LINE_BREAK${response.body}".toByteArray()
+    return "${buildResponseFirstLine(response)}$LINE_BREAK$headers$LINE_BREAK$LINE_BREAK${response.body ?: ""}"
+        .toByteArray()
 }
 
 fun timeoutResponse(): HttpResponse {
