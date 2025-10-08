@@ -9,8 +9,6 @@ import java.nio.channels.CompletionHandler
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-const val READ_BYTE_BUFFER_CAPACITY = 1024
-
 fun <T, R> completionHandler(
     continuation: CancellableContinuation<R>,
     completed: (T, Any?) -> Unit) = object: CompletionHandler<T, Any?> {
@@ -40,8 +38,8 @@ suspend fun AsynchronousSocketChannel.writeAwait(bytes: ByteArray) = suspendCanc
     this.write(ByteBuffer.wrap(bytes), null, handler)
 }
 
-suspend fun AsynchronousSocketChannel.readAwait() = suspendCancellableCoroutine { continuation ->
-    val buffer = ByteBuffer.allocate(READ_BYTE_BUFFER_CAPACITY)
+suspend fun AsynchronousSocketChannel.readAwait(bufferSize: Int = 1) = suspendCancellableCoroutine { continuation ->
+    val buffer = ByteBuffer.allocate(bufferSize)
 
     val handler = completionHandler<Int, ByteArray?>(continuation) { size, _ ->
         val result = if (size == -1) {
