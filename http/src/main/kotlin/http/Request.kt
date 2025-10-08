@@ -23,10 +23,12 @@ enum class RequestMethod {
 }
 
 suspend fun buildRequestObject(inputStream: AsynchronousSocketChannel): Request {
-    val startLine = String(readLine(inputStream), Charsets.UTF_8).split(" ")
+    val (methodRaw, urlRaw, _) = String(readLine(inputStream), Charsets.UTF_8).split(" ")
 
-    val method = RequestMethod.valueOf(startLine[0].uppercase())
-    val url = startLine[1].lowercase()
+    val method = RequestMethod.entries
+        .firstOrNull { it.name.equals(methodRaw, true) } ?:
+        throw BadRequest("Unsupported http method $methodRaw, should be one of ${RequestMethod.entries}")
+    val url = urlRaw.lowercase()
 
     val headers = flow {
         while (true) {
@@ -68,3 +70,5 @@ suspend fun readBody(inputStream: AsynchronousSocketChannel, contentLength: Int)
     }
     return res.take(contentLength).toByteArray()
 }
+
+class BadRequest(message: String): RuntimeException(message)
