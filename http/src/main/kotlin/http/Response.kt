@@ -38,6 +38,7 @@ fun buildResponseFirstLine(response: HttpResponse): String {
 
 object ResponseCode {
     const val OK = 200
+    const val BAD_REQUEST = 400
     const val NOT_FOUND = 404
     const val REQUEST_TIMEOUT = 408
     const val SERVER_ERROR = 500
