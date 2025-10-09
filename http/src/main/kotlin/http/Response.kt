@@ -14,7 +14,7 @@ data class HttpResponse(
     val headers: List<String> = emptyList()
 )
 
-data class ResponseStatus(val code: Int, val message: String?)
+data class ResponseStatus(val code: Int, val message: String? = null)
 
 fun buildHttpResponse(response: HttpResponse): ByteArray {
     val commonHeaders = listOf(
