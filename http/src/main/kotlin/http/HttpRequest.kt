@@ -11,7 +11,7 @@ private val END_OF_LINE = "\r\n".toByteArray().toList()
 
 private const val CONTENT_LENGTH_HEADER = "content-length"
 
-data class Request(
+data class HttpRequest(
     val method: RequestMethod,
     val url: String,
     val headers: List<String> = listOf(),
@@ -22,7 +22,7 @@ enum class RequestMethod {
     GET, POST, PUT, DELETE
 }
 
-suspend fun buildRequestObject(inputStream: AsynchronousSocketChannel): Request {
+suspend fun buildRequestObject(inputStream: AsynchronousSocketChannel): HttpRequest {
     val (methodRaw, urlRaw, _) = String(readLine(inputStream), Charsets.UTF_8).split(" ")
 
     val method = RequestMethod.entries
@@ -47,7 +47,7 @@ suspend fun buildRequestObject(inputStream: AsynchronousSocketChannel): Request 
 
     val body = if (contentLength > 0) readBody(inputStream, contentLength) else null
 
-    return Request(method, url, headers, body)
+    return HttpRequest(method, url, headers, body)
 }
 
 suspend fun readLine(inputStream: AsynchronousSocketChannel): ByteArray {
