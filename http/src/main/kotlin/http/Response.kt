@@ -10,7 +10,7 @@ private const val LINE_BREAK = "\r\n"
 
 data class HttpResponse(
     val status: ResponseStatus,
-    val body: String? = null,
+    val body: ByteArray? = null,
     val headers: List<String> = emptyList()
 )
 
@@ -18,13 +18,13 @@ data class ResponseStatus(val code: Int, val message: String? = null)
 
 fun buildHttpResponse(response: HttpResponse): ByteArray {
     val commonHeaders = listOf(
-        contentLengthHeader(calculateContentLength(response.body)),
+        contentLengthHeader(response.body?.size ?: 0),
         CONTENT_TYPE_HEADER,
         CONNECTION_CLOSE_HEADER)
 
     val headers = (response.headers + commonHeaders).joinToString(LINE_BREAK)
 
-    return "${buildResponseFirstLine(response)}$LINE_BREAK$headers$LINE_BREAK$LINE_BREAK${response.body ?: ""}"
+    return "${buildResponseStartLine(response.status)}$LINE_BREAK$headers$LINE_BREAK$LINE_BREAK${response.body ?: ""}"
         .toByteArray()
 }
 
@@ -32,8 +32,8 @@ fun timeoutResponse(): HttpResponse {
     return HttpResponse(status = ResponseStatus(REQUEST_TIMEOUT, "Request Timeout"))
 }
 
-fun buildResponseFirstLine(response: HttpResponse): String {
-    return "$PROTOCOL_VERSION ${response.status.code} ${response.status.message ?: ""}"
+fun buildResponseStartLine(status: ResponseStatus): String {
+    return "$PROTOCOL_VERSION ${status.code}${status.message?.let { " $it" } ?: ""}"
 }
 
 object ResponseCode {
@@ -46,8 +46,4 @@ object ResponseCode {
 
 fun contentLengthHeader(contentLength: Int): String {
     return "$CONTENT_LENGTH_HEADER: $contentLength"
-}
-
-fun calculateContentLength(body: String?): Int {
-    return body?.toByteArray(Charsets.UTF_8)?.size ?: 0
 }
