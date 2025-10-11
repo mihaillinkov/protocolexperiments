@@ -82,7 +82,7 @@ suspend fun processSocket(
                 val request = buildRequestObject(socket)
                 logger.info("Processing request: $request")
                 val handler = handlers[request.url to request.method]
-                handler?.handle(request) ?: HttpResponse(ResponseStatus(NOT_FOUND))
+                handler?.handle(request) ?: HttpResponse(status = ResponseStatus.notFound())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: BadRequest) {

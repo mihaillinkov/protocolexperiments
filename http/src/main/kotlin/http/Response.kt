@@ -1,12 +1,18 @@
 package http
 
-import http.ResponseCode.REQUEST_TIMEOUT
-
 private const val PROTOCOL_VERSION = "HTTP/1.1"
 private const val CONTENT_LENGTH_HEADER = "Content-Length"
 private const val CONNECTION_CLOSE_HEADER = "Connection: Close"
 private const val CONTENT_TYPE_HEADER = "Content-type: text/plain; charset=utf-8"
 private const val LINE_BREAK = "\r\n"
+
+object ResponseCode {
+    const val OK = 200
+    const val BAD_REQUEST = 400
+    const val NOT_FOUND = 404
+    const val REQUEST_TIMEOUT = 408
+    const val SERVER_ERROR = 500
+}
 
 data class HttpResponse(
     val status: ResponseStatus,
@@ -14,7 +20,12 @@ data class HttpResponse(
     val headers: List<String> = emptyList()
 )
 
-data class ResponseStatus(val code: Int, val message: String? = null)
+data class ResponseStatus(val code: Int, val message: String? = null) {
+    companion object {
+        fun ok() = ResponseStatus(ResponseCode.OK, "OK")
+        fun notFound() = ResponseStatus(ResponseCode.NOT_FOUND, "NOT_FOUND")
+    }
+}
 
 fun buildHttpResponse(response: HttpResponse): ByteArray {
     val commonHeaders = listOf(
@@ -24,24 +35,17 @@ fun buildHttpResponse(response: HttpResponse): ByteArray {
 
     val headers = (response.headers + commonHeaders).joinToString(LINE_BREAK)
 
-    return "${buildResponseStartLine(response.status)}$LINE_BREAK$headers$LINE_BREAK$LINE_BREAK${response.body ?: ""}"
-        .toByteArray()
+    return ("${buildResponseStartLine(response.status)}$LINE_BREAK" +
+            "$headers$LINE_BREAK$LINE_BREAK").toByteArray() + (response.body ?: byteArrayOf())
+
 }
 
 fun timeoutResponse(): HttpResponse {
-    return HttpResponse(status = ResponseStatus(REQUEST_TIMEOUT, "Request Timeout"))
+    return HttpResponse(status = ResponseStatus(ResponseCode.REQUEST_TIMEOUT, "Request Timeout"))
 }
 
 fun buildResponseStartLine(status: ResponseStatus): String {
     return "$PROTOCOL_VERSION ${status.code}${status.message?.let { " $it" } ?: ""}"
-}
-
-object ResponseCode {
-    const val OK = 200
-    const val BAD_REQUEST = 400
-    const val NOT_FOUND = 404
-    const val REQUEST_TIMEOUT = 408
-    const val SERVER_ERROR = 500
 }
 
 fun contentLengthHeader(contentLength: Int): String {

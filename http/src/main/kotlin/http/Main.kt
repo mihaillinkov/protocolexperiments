@@ -9,7 +9,7 @@ fun main(vararg args: String) = runBlocking {
 
     App(Config(port, 2, 2000))
         .addHandler("/hello", RequestMethod.GET) {
-            HttpResponse(ResponseStatus(ResponseCode.OK), "Hello \uD83D\uDC24".toByteArray(Charsets.UTF_8))
+            HttpResponse(ResponseStatus.ok(), "Hello \uD83D\uDC24".toByteArray(Charsets.UTF_8))
         }
         .run()
 }
