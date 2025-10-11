@@ -3,8 +3,8 @@
  */
 
 plugins {
-    // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
     id("org.jetbrains.kotlin.jvm")
+    id("io.kotest")
 }
 
 repositories {
@@ -13,15 +13,15 @@ repositories {
 }
 
 dependencies {
-    implementation("org.slf4j:slf4j-api:2.0.7")
     runtimeOnly("ch.qos.logback:logback-classic:1.4.8")
-
+    implementation("org.slf4j:slf4j-api:2.0.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     // Use JUnit Jupiter for testing.
-    testImplementation("org.junit.jupiter:junit-jupiter:5.12.1")
-
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("io.kotest:kotest-framework-engine:6.0.3")
+    testImplementation("io.kotest:kotest-runner-junit5:6.0.3")
+    // https://mvnrepository.com/artifact/io.kotest/kotest-assertions-core
+    testImplementation("io.kotest:kotest-assertions-core:6.0.3")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

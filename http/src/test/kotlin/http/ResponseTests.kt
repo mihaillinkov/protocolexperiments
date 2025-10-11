@@ -1,14 +1,16 @@
 package http
 
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.beEmpty
+import io.kotest.matchers.should
+import io.kotest.matchers.shouldBe
 
-class ResponseTests {
-    @Test
-    fun testTimeoutResponse() {
+class ResponseTests: FunSpec({
+    test("timeout response should have status 408") {
         val response = timeoutResponse()
 
-        Assertions.assertNull(response.body)
-        Assertions.assertEquals(ResponseStatus(408, "Request Timeout"), response.status)
+        response.body shouldBe null
+        response.status shouldBe ResponseStatus(408, "Request Timeout")
+        response.headers should beEmpty()
     }
-}
+})
