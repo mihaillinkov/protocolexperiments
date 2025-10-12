@@ -22,8 +22,8 @@ data class HttpResponse(
 
 data class ResponseStatus(val code: Int, val message: String? = null) {
     companion object {
-        fun ok() = ResponseStatus(ResponseCode.OK, "OK")
-        fun notFound() = ResponseStatus(ResponseCode.NOT_FOUND, "NOT_FOUND")
+        fun ok(message: String = "OK") = ResponseStatus(ResponseCode.OK, message)
+        fun notFound(message: String = "NOT_FOUND") = ResponseStatus(ResponseCode.NOT_FOUND, message)
     }
 }
 
