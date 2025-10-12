@@ -20,8 +20,10 @@ dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation("io.kotest:kotest-framework-engine:6.0.3")
     testImplementation("io.kotest:kotest-runner-junit5:6.0.3")
-    // https://mvnrepository.com/artifact/io.kotest/kotest-assertions-core
     testImplementation("io.kotest:kotest-assertions-core:6.0.3")
+
+    // https://mvnrepository.com/artifact/io.mockk/mockk
+    testImplementation("io.mockk:mockk:1.14.6")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
