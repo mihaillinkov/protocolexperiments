@@ -24,6 +24,9 @@ dependencies {
 
     // https://mvnrepository.com/artifact/io.mockk/mockk
     testImplementation("io.mockk:mockk:1.14.6")
+    // https://mvnrepository.com/artifact/com.squareup.retrofit2/retrofit
+    testImplementation("io.ktor:ktor-client-core:3.3.1")
+    testImplementation("io.ktor:ktor-client-cio:3.3.1")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

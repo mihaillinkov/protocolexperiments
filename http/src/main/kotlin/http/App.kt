@@ -1,7 +1,6 @@
 package http
 
 import http.ResponseCode.BAD_REQUEST
-import http.ResponseCode.NOT_FOUND
 import http.ResponseCode.SERVER_ERROR
 import http.handler.RequestHandler
 import kotlinx.coroutines.CancellationException
@@ -71,7 +70,7 @@ class App(private val config: Config) {
     }
 }
 
-suspend fun processSocket(
+private suspend fun processSocket(
     socket: AsynchronousSocketChannel,
     requestTimeout: Long,
     handlers: Map<Pair<String, RequestMethod>, RequestHandler>) {

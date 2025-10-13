@@ -5,6 +5,8 @@ import io.kotest.matchers.collections.beEmpty
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldBeEqualIgnoringCase
+import io.mockk.mockk
+import java.nio.channels.AsynchronousSocketChannel
 
 private const val CONTENT_LENGTH_HEADER = "Content-Length"
 private const val CONTENT_TYPE_HEADER = "Content-type: text/plain; charset=utf-8"
@@ -12,7 +14,13 @@ private const val CONNECTION_CLOSE_HEADER = "Connection: Close"
 private const val END_LINE = "\r\n"
 
 class ResponseTests: FunSpec() {
+    lateinit var socketChannel: AsynchronousSocketChannel
+
     init {
+        beforeTest {
+            socketChannel = mockk()
+        }
+
         test("timeout response should have status 408") {
             val response = timeoutResponse()
 
