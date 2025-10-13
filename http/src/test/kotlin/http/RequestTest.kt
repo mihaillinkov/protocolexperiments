@@ -10,6 +10,7 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.CancellationException
 import java.nio.channels.AsynchronousSocketChannel
 
+
 class RequestTest: FunSpec() {
     lateinit var socketChannel: AsynchronousSocketChannel
 
@@ -23,7 +24,7 @@ class RequestTest: FunSpec() {
             unmockkStatic(socketChannel::readAwait)
         }
 
-        test("should read line") {
+        test("readLine test") {
             val output = "GET /test HTTP/1.1\r\n".toByteArray(Charsets.UTF_8).map { byteArrayOf(it) }
             coEvery { socketChannel.readAwait() } returnsMany output
 
@@ -32,10 +33,23 @@ class RequestTest: FunSpec() {
             result shouldBe "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8)
         }
 
-        test("should throw CancellationException when ") {
+        test("readLine should throw CancellationException when readAwait returns null") {
             coEvery { socketChannel.readAwait() } returns null
 
             shouldThrow<CancellationException> { readLine(socketChannel) }
+        }
+
+        test("readBody test should throw CancellationException when readAwait returns null") {
+            coEvery { socketChannel.readAwait(any<Int>()) } returns null
+
+            shouldThrow<CancellationException> { readBody(socketChannel, 1024) }
+        }
+
+        test("readBody test") {
+            val output = "test data".toByteArray(Charsets.UTF_8).map { byteArrayOf(it) }
+            coEvery { socketChannel.readAwait(any<Int>()) } returnsMany(output)
+
+            readBody(socketChannel, 9) shouldBe "test data".toByteArray(Charsets.UTF_8)
         }
     }
 }
