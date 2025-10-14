@@ -7,9 +7,9 @@ private const val DEFAULT_PORT = 8080
 fun main(vararg args: String) = runBlocking {
     val port = args.getOrNull(0)?.toInt() ?: DEFAULT_PORT
 
-    App(Config(port, 1, 2000))
+    App(Config(port = port, requestTimeoutMs = 2000, maxParallelRequest = 64))
         .addHandler(path ="/test", method = RequestMethod.GET) {
             HttpResponse(ResponseStatus.ok(), "Test \uD83D\uDC24".toByteArray(Charsets.UTF_8))
         }
-        .run()
+        .start()
 }

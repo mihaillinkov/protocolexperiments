@@ -29,7 +29,7 @@ class AppTests: FunSpec() {
                             delay(5000)
                             HttpResponse(ResponseStatus.ok())
                         }
-                        .run()
+                        .start()
                 }
 
                 client = HttpClient()
