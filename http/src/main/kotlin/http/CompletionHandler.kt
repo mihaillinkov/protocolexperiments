@@ -38,20 +38,15 @@ suspend fun AsynchronousSocketChannel.writeAwait(bytes: ByteArray) = suspendCanc
     this.write(ByteBuffer.wrap(bytes), null, handler)
 }
 
-suspend fun AsynchronousSocketChannel.readAwait(bufferSize: Int = 1) = suspendCancellableCoroutine { continuation ->
-    val buffer = ByteBuffer.allocate(bufferSize)
-
-    val handler = completionHandler<Int, ByteArray?>(continuation) { size, _ ->
-        val result = if (size == -1) {
-            null
+suspend fun AsynchronousSocketChannel.readAwait(buffer: ByteBuffer) = suspendCancellableCoroutine { continuation ->
+    val handler = completionHandler<Int, ByteArray>(continuation) { size, _ ->
+        if (size == -1) {
+            continuation.cancel()
         } else {
             buffer.flip()
-            val bytes = ByteArray(size)
-            buffer.get(bytes)
-            bytes
+            continuation.resume(size)
         }
-        continuation.resume(result)
     }
-
+    buffer.clear()
     read(buffer, null, handler)
 }

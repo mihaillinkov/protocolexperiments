@@ -4,6 +4,9 @@ import http.RequestMethod.DELETE
 import http.RequestMethod.GET
 import http.RequestMethod.POST
 import http.RequestMethod.PUT
+import http.request.Header
+import http.request.createRequest
+import http.request.getMethod
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
@@ -11,7 +14,6 @@ import io.kotest.matchers.collections.shouldBeOneOf
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -35,34 +37,6 @@ class RequestTest: FunSpec() {
             unmockkStatic(socketChannel::readAwait)
         }
 
-        test("readLine test") {
-            val output = "GET /test HTTP/1.1\r\n".toByteArray(Charsets.UTF_8).map { byteArrayOf(it) }
-            coEvery { socketChannel.readAwait() } returnsMany output
-
-            val result = readLine(socketChannel)
-
-            result shouldBe "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8)
-        }
-
-        test("readLine should throw CancellationException when readAwait returns null") {
-            coEvery { socketChannel.readAwait() } returns null
-
-            shouldThrow<CancellationException> { readLine(socketChannel) }
-        }
-
-        test("readBody test should throw CancellationException when readAwait returns null") {
-            coEvery { socketChannel.readAwait(any<Int>()) } returns null
-
-            shouldThrow<CancellationException> { readBody(socketChannel, 1024) }
-        }
-
-        test("readBody test") {
-            val output = "test data".toByteArray(Charsets.UTF_8).map { byteArrayOf(it) }
-            coEvery { socketChannel.readAwait(any<Int>()) } returnsMany(output)
-
-            readBody(socketChannel, 9) shouldBe "test data".toByteArray(Charsets.UTF_8)
-        }
-
         test("buildRequestObject test") {
             val body = "test"
 
@@ -71,18 +45,18 @@ class RequestTest: FunSpec() {
                     "Content-Length: 4\r\n\r\n" +
                     body).toByteArray(Charsets.UTF_8))
 
-            val request = buildRequestObject(socketChannel)
+            val request = createRequest(socketChannel)
 
             request.method shouldBe GET
             request.url shouldBe "/test"
             request.body shouldBe body.toByteArray(Charsets.UTF_8)
-            request.headers shouldContainExactlyInAnyOrder listOf("Content-Length: 4", "test-header-1: test-1")
+            request.headers shouldContainExactlyInAnyOrder listOf(Header("content-length", "4"), Header("test-header-1", "test-1"))
         }
 
         test("buildRequestObject should throw BadRequest when unsupported request method") {
             mockSocketChannelRead(socketChannel, "FAILED-METHOD /test HTTP/1.1\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-            shouldThrow<BadRequest> { buildRequestObject(socketChannel) }
+            shouldThrow<BadRequest> { createRequest(socketChannel) }
                 .message shouldBe "Unsupported http method FAILED-METHOD, should be one of [GET, POST, PUT, DELETE]"
         }
 
@@ -90,7 +64,7 @@ class RequestTest: FunSpec() {
             val invalidStartLine = "GET HTTP/1.1"
             mockSocketChannelRead(socketChannel, "$invalidStartLine\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-            shouldThrow<BadRequest> { buildRequestObject(socketChannel) }
+            shouldThrow<BadRequest> { createRequest(socketChannel) }
                 .message shouldBe "Invalid startline $invalidStartLine"
         }
 
@@ -98,7 +72,7 @@ class RequestTest: FunSpec() {
             mockSocketChannelRead(socketChannel, "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8))
 
             shouldThrow<CancellationException> {
-                buildRequestObject(socketChannel)
+                createRequest(socketChannel)
             }
         }
 
