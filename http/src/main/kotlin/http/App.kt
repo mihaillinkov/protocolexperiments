@@ -3,8 +3,8 @@ package http
 import http.ResponseCode.BAD_REQUEST
 import http.ResponseCode.SERVER_ERROR
 import http.handler.RequestHandler
+import http.request.createRequest
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -53,13 +53,11 @@ class App(private val config: Config) {
                         processSocket(socket, config.requestTimeoutMs, handlers)
                     }
                     logger.info(
-                        "Request#{} complete, Processing took {} milliseconds, totalTime {}, received at {}, thread: {}, dispatcher: {}",
+                        "Request#{} complete, Processing took {} microseconds, totalTime {}, received at {}",
                         requestId,
-                        processingDuration.inWholeMilliseconds,
+                        processingDuration.inWholeMicroseconds,
                         System.currentTimeMillis() - receivedAt,
                         Instant.ofEpochMilli(receivedAt),
-                        Thread.currentThread(),
-                        coroutineContext[CoroutineDispatcher]
                     )
                 }
             }
@@ -83,7 +81,7 @@ private suspend fun processSocket(
         val response = withTimeoutOrNull(requestTimeout) {
             try {
                 val (request, requestBuildTime) = measureTimedValue {
-                    buildRequestObject(socket)
+                    createRequest(socket)
                 }
 
                 logger.debug("Processing request: {}", request)
@@ -103,7 +101,6 @@ private suspend fun processSocket(
                 HttpResponse(ResponseStatus(SERVER_ERROR, e.message))
             }
         }
-
         val responseProcessingTime = measureTime {
             socket.writeAwait(buildHttpResponse(response ?: timeoutResponse()))
         }
