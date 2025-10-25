@@ -1,6 +1,4 @@
-package http
-
-import http.request.Header
+package http.request
 
 data class HttpRequest(
     val method: RequestMethod,

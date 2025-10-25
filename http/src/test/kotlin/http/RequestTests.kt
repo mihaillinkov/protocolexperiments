@@ -1,11 +1,12 @@
 package http
 
-import http.RequestMethod.DELETE
-import http.RequestMethod.GET
-import http.RequestMethod.POST
-import http.RequestMethod.PUT
+import http.request.BadRequest
+import http.request.RequestMethod.DELETE
+import http.request.RequestMethod.GET
+import http.request.RequestMethod.POST
+import http.request.RequestMethod.PUT
 import http.request.Header
-import http.request.createRequest
+import http.request.RequestFactory
 import http.request.getMethod
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -26,9 +27,12 @@ import java.nio.channels.CompletionHandler
 
 class RequestTest: FunSpec() {
     lateinit var socketChannel: AsynchronousSocketChannel
+    lateinit var requestFactory: RequestFactory
 
     init {
         beforeTest {
+            requestFactory = RequestFactory()
+
             socketChannel = mockk()
             mockkStatic(socketChannel::readAwait)
         }
@@ -45,7 +49,7 @@ class RequestTest: FunSpec() {
                     "Content-Length: 4\r\n\r\n" +
                     body).toByteArray(Charsets.UTF_8))
 
-            val request = createRequest(socketChannel)
+            val request = requestFactory.createRequest(socketChannel)
 
             request.method shouldBe GET
             request.url shouldBe "/test"
@@ -56,7 +60,7 @@ class RequestTest: FunSpec() {
         test("buildRequestObject should throw BadRequest when unsupported request method") {
             mockSocketChannelRead(socketChannel, "FAILED-METHOD /test HTTP/1.1\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-            shouldThrow<BadRequest> { createRequest(socketChannel) }
+            shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
                 .message shouldBe "Unsupported http method FAILED-METHOD, should be one of [GET, POST, PUT, DELETE]"
         }
 
@@ -64,7 +68,7 @@ class RequestTest: FunSpec() {
             val invalidStartLine = "GET HTTP/1.1"
             mockSocketChannelRead(socketChannel, "$invalidStartLine\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-            shouldThrow<BadRequest> { createRequest(socketChannel) }
+            shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
                 .message shouldBe "Invalid startline $invalidStartLine"
         }
 
@@ -72,7 +76,7 @@ class RequestTest: FunSpec() {
             mockSocketChannelRead(socketChannel, "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8))
 
             shouldThrow<CancellationException> {
-                createRequest(socketChannel)
+                requestFactory.createRequest(socketChannel)
             }
         }
 

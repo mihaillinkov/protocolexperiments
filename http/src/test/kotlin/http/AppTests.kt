@@ -1,5 +1,6 @@
 package http
 
+import http.request.RequestMethod
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
