@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package http
 
 import http.ResponseCode.BAD_REQUEST
@@ -16,50 +18,51 @@ import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
-import java.time.Instant
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 import kotlin.time.measureTime
-import kotlin.time.measureTimedValue
 
 
 private val logger = LoggerFactory.getLogger(App::class.java)
 
 class App(private val config: Config) {
-    private val handlers = mutableMapOf<Pair<String, RequestMethod>, RequestHandler>()
+    private val handlers = mutableMapOf<RequestKey, RequestHandler>()
     private val requestFactory = RequestFactory()
 
     fun addHandler(path: String, method: RequestMethod, handler: RequestHandler): App {
         return this.apply {
-            handlers[path.lowercase() to method] = handler
+            handlers[RequestKey(path.lowercase(), method)] = handler
         }
     }
 
     @OptIn(ExperimentalAtomicApi::class)
     suspend fun start() = coroutineScope {
+        val processor = RequestProcessor(config, requestFactory, handlers)
         val requestCounter = AtomicInt(0)
         val maxParallelRequest = maxOf(1, config.maxParallelRequest)
 
         val serverChannel = AsynchronousServerSocketChannel.open()
-            .bind(InetSocketAddress(config.port), config.socketBacklogSize)
+            .bind(InetSocketAddress(config.port))
         logger.info("Application started on port {}, maxParallelRequest: {}", config.port, maxParallelRequest)
 
-        val channel = Channel<RequestContext>()
+        val requestChannel = Channel<RequestMetadata>()
 
         repeat(maxParallelRequest) {
-            launch(context = Dispatchers.Default) {
-                for ((receivedAt, socket) in channel) {
+            launch(Dispatchers.Default) {
+                for ((receivedAt, socket) in requestChannel) {
                     val requestId = requestCounter.incrementAndFetch()
                     val processingDuration = measureTime {
-                        processSocket(socket, config.requestTimeoutMs)
+                        processor.processRequest(socket)
                     }
                     logger.info(
-                        "Request#{} complete, Processing took {} microseconds, totalTime {}, received at {}",
+                        "Request#{} complete, Processing took {}, totalTime {}",
                         requestId,
-                        processingDuration.inWholeMicroseconds,
-                        System.currentTimeMillis() - receivedAt,
-                        Instant.ofEpochMilli(receivedAt),
+                        processingDuration,
+                        Clock.System.now() - receivedAt
                     )
                 }
             }
@@ -68,45 +71,49 @@ class App(private val config: Config) {
         serverChannel.use { server ->
             while (true) {
                 val socket = server.acceptAwait()
-                channel.send(RequestContext(System.currentTimeMillis(), socket))
+                requestChannel.send(RequestMetadata(Clock.System.now(), socket))
             }
-        }
-    }
-
-    private suspend fun processSocket(socket: AsynchronousSocketChannel, requestTimeout: Long) {
-        socket.use { socket ->
-            val response = withTimeoutOrNull(requestTimeout) {
-                try {
-                    val (request, requestBuildTime) = measureTimedValue {
-                        requestFactory.createRequest(socket)
-                    }
-
-                    logger.debug("Processing request: {}", request)
-                    val (response, handlingTime) = measureTimedValue {
-                        val handler = handlers[request.url to request.method]
-                        handler?.handle(request) ?: HttpResponse(status = ResponseStatus.notFound())
-                    }
-                    logger.info("requestBuildTime: {}, handlingTime: {}", requestBuildTime, handlingTime)
-                    response
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: BadRequest) {
-                    logger.error("Bad request", e)
-                    HttpResponse(ResponseStatus(BAD_REQUEST, e.message))
-                } catch (e: Exception) {
-                    logger.error("Exception while processing request", e)
-                    HttpResponse(ResponseStatus(SERVER_ERROR, e.message))
-                }
-            }
-
-            val responseProcessingTime = measureTime {
-                socket.writeAwait(buildHttpResponse(response ?: timeoutResponse()))
-            }
-            logger.info("responseProcessingTime: {}", responseProcessingTime)
         }
     }
 }
 
-data class RequestContext(
-    val receivedAt: Long,
+data class RequestMetadata(
+    val receivedAt: Instant,
     val socket: AsynchronousSocketChannel)
+
+data class RequestKey(
+    val url: String,
+    val method: RequestMethod)
+
+
+class RequestProcessor(
+    val config: Config,
+    val requestFactory: RequestFactory,
+    val handlers: Map<RequestKey, RequestHandler>) {
+
+    suspend fun processRequest(socket: AsynchronousSocketChannel) {
+        socket.use { socket ->
+            val response = withTimeoutOrNull(config.requestTimeoutMs) {
+                process(socket)
+            }
+            socket.writeAwait(buildHttpResponse(response ?: timeoutResponse()))
+        }
+    }
+
+    private suspend fun process(socket: AsynchronousSocketChannel): HttpResponse {
+        return try {
+            val request = requestFactory.createRequest(socket)
+            val handler = handlers[RequestKey(request.url, request.method)]
+
+            handler?.handle(request) ?: HttpResponse(status = ResponseStatus.notFound())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: BadRequest) {
+            logger.error("Bad request", e)
+            HttpResponse(ResponseStatus(BAD_REQUEST, e.message))
+        } catch (e: Exception) {
+            logger.error("Exception while processing request", e)
+            HttpResponse(ResponseStatus(SERVER_ERROR, e.message))
+        }
+    }
+}

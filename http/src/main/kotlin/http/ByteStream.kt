@@ -3,6 +3,7 @@ package http
 import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousSocketChannel
+import java.util.LinkedList
 
 private const val BUFFER_CAPACITY = 128
 private val LINE_BREAK = "\r\n".toByteArray()
@@ -28,11 +29,18 @@ fun createByteStream(channel: AsynchronousSocketChannel) = object: ByteStream {
 }
 
 internal suspend fun ByteStream.readLine(): ByteArray {
-    val bytes = mutableListOf<Byte>()
+    val bytes = LinkedList<Byte>()
+    var preLast: Byte = -1
 
-    while (bytes.size < 2 || !(bytes[bytes.lastIndex - 1] == LINE_BREAK[0] && bytes[bytes.lastIndex] == LINE_BREAK[1])) {
+    do {
         bytes.add(next())
-    }
+        if (preLast == LINE_BREAK[0] && bytes.last() == LINE_BREAK[1]) {
+            break
+        }
+        preLast = bytes.last()
+    } while (true)
 
-    return bytes.dropLast(2).toByteArray()
+    bytes.removeLast()
+    bytes.removeLast()
+    return bytes.toByteArray()
 }

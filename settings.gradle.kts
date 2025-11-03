@@ -5,4 +5,4 @@ plugins {
 
 rootProject.name = "protocols"
 
-include("http", "utilities")
+include("http")
