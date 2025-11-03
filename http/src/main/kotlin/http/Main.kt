@@ -12,7 +12,7 @@ fun main(vararg args: String) = runBlocking {
     val config = Config(
         port = port,
         requestTimeoutMs = 2000,
-        maxParallelRequest = 16,
+        maxParallelRequest = 15,
         socketBacklogSize = SOCKET_BACKLOG_SIZE)
 
     App(config)
