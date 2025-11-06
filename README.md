@@ -5,10 +5,10 @@ Purpose of this project is to experiment with throughput, and achieve maximum pe
 ````
 java \
 -Dcom.sun.management.jmxremote  \
--Dcom.sun.management.jmxremote.port=$PORT  \
--Dcom.sun.management.jmxremote.rmi.port=$PORT \
+-Dcom.sun.management.jmxremote.port=9010  \
+-Dcom.sun.management.jmxremote.rmi.port=9010 \
 -Dcom.sun.management.jmxremote.ssl=false  \
 -Dcom.sun.management.jmxremote.authenticate=false  \
--Djava.rmi.server.hostname=$PUBLIC_IP \
+-Djava.rmi.server.hostname=192.168.1.200 \
 -cp "./*" http.MainKt
 ```
