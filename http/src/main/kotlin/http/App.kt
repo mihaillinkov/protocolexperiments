@@ -43,15 +43,13 @@ class App(private val config: Config) {
     suspend fun start() = coroutineScope {
         val processor = RequestProcessor(config, requestFactory, handlers)
         val requestCounter = AtomicInt(0)
-        val maxParallelRequest = maxOf(1, config.maxParallelRequest)
 
-        val serverChannel = AsynchronousServerSocketChannel.open()
-            .bind(InetSocketAddress(config.port))
-        logger.info("Application started on port {}, maxParallelRequest: {}", config.port, maxParallelRequest)
+        val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port))
+        logger.info("Application started on port {}, parallelRequestLimit: {}", config.port, config.parallelRequestLimit)
 
         val requestChannel = Channel<RequestMetadata>()
 
-        repeat(maxParallelRequest) {
+        repeat(config.parallelRequestLimit) {
             launch(Dispatchers.Default) {
                 for ((receivedAt, socket) in requestChannel) {
                     val requestId = requestCounter.incrementAndFetch()
