@@ -11,10 +11,10 @@ fun buildConfig(
     parallelRequestLimit: Int? = null,
     socketBacklogSize: Int? = null): Config {
 
-    val port = port ?: Integer.getInteger("PORT", DEFAULT_PORT)
-    val timeout = requestTimeoutInMs ?: Integer.getInteger("REQUEST_TIMEOUT", DEFAULT_REQUEST_TIMEOUT)
-    val parallelRequestLimit = parallelRequestLimit ?: Integer.getInteger("PARALLEL_REQUEST_LIMIT", DEFAULT_PARALLEL_REQUEST_LIMIT)
-    val socketBacklogSize = socketBacklogSize ?: Integer.getInteger("SOCKET_BACKLOG_LIMIT", DEFAULT_SOCKET_BACKLOG_LIMIT)
+    val port = port ?: Integer.getInteger("port", DEFAULT_PORT)
+    val timeout = requestTimeoutInMs ?: Integer.getInteger("request.timeout", DEFAULT_REQUEST_TIMEOUT)
+    val parallelRequestLimit = parallelRequestLimit ?: Integer.getInteger("parallel.request.limit", DEFAULT_PARALLEL_REQUEST_LIMIT)
+    val socketBacklogSize = socketBacklogSize ?: Integer.getInteger("socket.backlog.size", DEFAULT_SOCKET_BACKLOG_LIMIT)
 
     return Config(
         port = port,
