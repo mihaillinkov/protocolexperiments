@@ -19,8 +19,8 @@ fun buildConfig(
     return Config(
         port = port,
         requestTimeoutMs = timeout.toLong(),
-        parallelRequestLimit = maxOf(1, parallelRequestLimit),
-        socketBacklogSize = maxOf(1, socketBacklogSize))
+        parallelRequestLimit = parallelRequestLimit,
+        socketBacklogSize = socketBacklogSize)
 }
 
 data class Config(
