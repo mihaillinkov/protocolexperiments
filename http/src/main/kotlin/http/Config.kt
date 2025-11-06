@@ -1,7 +1,30 @@
 package http
 
+private const val DEFAULT_PORT = 8080
+private const val DEFAULT_REQUEST_TIMEOUT = 2000
+private const val DEFAULT_PARALLEL_REQUEST_LIMIT = 15
+private const val DEFAULT_SOCKET_BACKLOG_LIMIT = 50
+
+fun buildConfig(
+    port: Int? = null,
+    requestTimeoutInMs: Int? = null,
+    parallelRequestLimit: Int? = null,
+    socketBacklogSize: Int? = null): Config {
+
+    val port = port ?: Integer.getInteger("port", DEFAULT_PORT)
+    val timeout = requestTimeoutInMs ?: Integer.getInteger("request-timeout", DEFAULT_REQUEST_TIMEOUT)
+    val parallelRequestLimit = parallelRequestLimit ?: Integer.getInteger("parallel-request-limit", DEFAULT_PARALLEL_REQUEST_LIMIT)
+    val socketBacklogSize = socketBacklogSize ?: Integer.getInteger("socket-backlog-limit", DEFAULT_SOCKET_BACKLOG_LIMIT)
+
+    return Config(
+        port = port,
+        requestTimeoutMs = timeout.toLong(),
+        parallelRequestLimit = maxOf(1, parallelRequestLimit),
+        socketBacklogSize = maxOf(1, socketBacklogSize))
+}
+
 data class Config(
-    val port: Int = 8080,
-    val requestTimeoutMs: Long = 1000,
-    val maxParallelRequest: Int = 1,
-    val socketBacklogSize: Int = 1024)
+    val port: Int,
+    val requestTimeoutMs: Long,
+    val parallelRequestLimit: Int,
+    val socketBacklogSize: Int)

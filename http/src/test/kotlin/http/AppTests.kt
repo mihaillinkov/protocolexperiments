@@ -20,7 +20,7 @@ class AppTests: FunSpec() {
         context("App test") {
             beforeTest {
                 appJob = launch {
-                    App(Config(requestTimeoutMs = 100))
+                    App(buildConfig(parallelRequestLimit = 100))
                         .addHandler(path = "/test", method = RequestMethod.GET) {
                             HttpResponse(
                                 status = ResponseStatus.ok(),
