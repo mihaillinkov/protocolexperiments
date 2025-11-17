@@ -10,7 +10,6 @@ import http.request.RequestFactory
 import http.request.RequestMethod
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -23,13 +22,13 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 import kotlin.time.measureTime
 
 
 private val logger = LoggerFactory.getLogger(App::class.java)
 
 class App(private val config: Config) {
+
     private val handlers = mutableMapOf<RequestKey, RequestHandler>()
     private val requestFactory = RequestFactory()
 
@@ -40,18 +39,19 @@ class App(private val config: Config) {
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun start() = coroutineScope {
+    suspend fun start() = coroutineScope<Unit> {
         val processor = RequestProcessor(config, requestFactory, handlers)
         val requestCounter = AtomicInt(0)
 
-        val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port))
+        val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port), config.socketBacklogSize)
         logger.info("Application started on port {}, parallelRequestLimit: {}", config.port, config.parallelRequestLimit)
 
-        val requestChannel = Channel<RequestMetadata>()
+        serverChannel.use { server ->
+            while (true) {
+                val socket = server.acceptAwait()
+                val receivedAt = Clock.System.now()
 
-        repeat(config.parallelRequestLimit) {
-            launch(Dispatchers.Default) {
-                for ((receivedAt, socket) in requestChannel) {
+                launch(Dispatchers.Default) {
                     val requestId = requestCounter.incrementAndFetch()
                     val processingDuration = measureTime {
                         processor.processRequest(socket)
@@ -65,19 +65,8 @@ class App(private val config: Config) {
                 }
             }
         }
-
-        serverChannel.use { server ->
-            while (true) {
-                val socket = server.acceptAwait()
-                requestChannel.send(RequestMetadata(Clock.System.now(), socket))
-            }
-        }
     }
 }
-
-data class RequestMetadata(
-    val receivedAt: Instant,
-    val socket: AsynchronousSocketChannel)
 
 data class RequestKey(
     val url: String,
