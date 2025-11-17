@@ -3,9 +3,9 @@ package http
 import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousSocketChannel
-import java.util.LinkedList
 
-private const val BUFFER_CAPACITY = 128
+private const val BUFFER_CAPACITY = 256
+private const val INITIAL_BUFFER_CAPACITY = 20
 private val LINE_BREAK = "\r\n".toByteArray()
 
 interface ByteStream: Closeable {
@@ -29,9 +29,8 @@ fun createByteStream(channel: AsynchronousSocketChannel) = object: ByteStream {
 }
 
 internal suspend fun ByteStream.readLine(): ByteArray {
-    val bytes = LinkedList<Byte>()
+    val bytes = ArrayList<Byte>(INITIAL_BUFFER_CAPACITY)
     var preLast: Byte = -1
-
     do {
         bytes.add(next())
         if (preLast == LINE_BREAK[0] && bytes.last() == LINE_BREAK[1]) {

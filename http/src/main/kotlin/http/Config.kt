@@ -28,7 +28,3 @@ data class Config(
     val requestTimeoutMs: Long,
     val parallelRequestLimit: Int,
     val socketBacklogSize: Int)
-
-/*
-java -DPARALLEL_REQUEST_LIMIT=4 -Dcom.sun.management.jmxremote  -Dcom.sun.management.jmxremote.port=9010  -Dcom.sun.management.jmxremote.rmi.port=9010 -Dcom.sun.management.jmxremote.ssl=false  -Dcom.sun.management.jmxremote.authenticate=false  -Djava.rmi.server.hostnamame=192.168.1.200 -cp "./*" http.MainKt
- */

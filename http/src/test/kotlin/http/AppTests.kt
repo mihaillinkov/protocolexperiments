@@ -19,10 +19,9 @@ class AppTests: FunSpec() {
     init {
         context("App test") {
             beforeTest {
+                val config = Config(
+                    port = 8080, requestTimeoutMs = 200, parallelRequestLimit = 16, socketBacklogSize = 50)
                 appJob = launch {
-                    val config = Config(
-                        port = 8080, requestTimeoutMs = 200, parallelRequestLimit = 16, socketBacklogSize = 50)
-
                     App(config)
                         .addHandler(path = "/test", method = RequestMethod.GET) {
                             HttpResponse(
