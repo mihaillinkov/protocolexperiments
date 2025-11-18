@@ -17,6 +17,8 @@ class MetricsService(token: String) {
 
     suspend fun sendMetrics(points: List<Point>) {
         logger.info("Sending {} metrics", points.size)
-        client.writePoints(points)
+        if (points.isNotEmpty()) {
+            client.writePoints(points)
+        }
     }
 }
