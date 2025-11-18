@@ -5,6 +5,8 @@ package http
 import http.ResponseCode.BAD_REQUEST
 import http.ResponseCode.SERVER_ERROR
 import http.handler.RequestHandler
+import http.metrics.BatchMetricsService
+import http.metrics.MetricData
 import http.request.BadRequest
 import http.request.RequestFactory
 import http.request.RequestMethod
@@ -17,17 +19,18 @@ import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
-import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Clock
+import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
 
 private val logger = LoggerFactory.getLogger(App::class.java)
 
-class App(private val config: Config) {
+class App(
+    private val config: Config,
+    private val batchMetricsService: BatchMetricsService? = null) {
 
     private val handlers = mutableMapOf<RequestKey, RequestHandler>()
     private val requestFactory = RequestFactory()
@@ -41,7 +44,6 @@ class App(private val config: Config) {
     @OptIn(ExperimentalAtomicApi::class)
     suspend fun start() = coroutineScope<Unit> {
         val processor = RequestProcessor(config, requestFactory, handlers)
-        val requestCounter = AtomicInt(0)
 
         val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port), config.socketBacklogSize)
         logger.info("Application started on port {}, parallelRequestLimit: {}", config.port, config.parallelRequestLimit)
@@ -52,16 +54,16 @@ class App(private val config: Config) {
                 val receivedAt = Clock.System.now()
 
                 launch(Dispatchers.Default) {
-                    val requestId = requestCounter.incrementAndFetch()
                     val processingDuration = measureTime {
                         processor.processRequest(socket)
                     }
-                    logger.info(
-                        "Request#{} complete, Processing took {}, totalTime {}",
-                        requestId,
-                        processingDuration,
-                        Clock.System.now() - receivedAt
-                    )
+                    batchMetricsService?.let {
+                        val totalTime = Clock.System.now() - receivedAt
+
+                        it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
+                        it.addMetric(MetricData("processingTime", processingDuration.toDouble(DurationUnit.MILLISECONDS)))
+                    }
+
                 }
             }
         }
