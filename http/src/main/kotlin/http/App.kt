@@ -48,6 +48,12 @@ class App(
         val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port), config.socketBacklogSize)
         logger.info("Application started on port {}, parallelRequestLimit: {}", config.port, config.parallelRequestLimit)
 
+        batchMetricsService?.let {
+            launch {
+                it.process()
+            }
+        }
+
         serverChannel.use { server ->
             while (true) {
                 val socket = server.acceptAwait()

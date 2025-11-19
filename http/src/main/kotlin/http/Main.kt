@@ -3,19 +3,19 @@ package http
 import http.metrics.BatchMetricsService
 import http.metrics.MetricsService
 import http.request.RequestMethod
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 fun main(vararg args: String) = runBlocking {
     val config = buildConfig()
 
-    val batchMetricsService = args.getOrNull(0)?.let { address ->
-        val metricsService = MetricsService(address)
-        BatchMetricsService(metricsService = metricsService)
-    }
+    val metricsUrl = System.getProperty("metrics.url", null)
+    val metricsToken = System.getProperty("metrics.token", null)
 
-    launch {
-        batchMetricsService?.process()
+    val batchMetricsService = if (metricsUrl != null && metricsToken != null) {
+        val metricsService = MetricsService(metricsUrl, metricsToken)
+        BatchMetricsService(metricsService = metricsService)
+    } else {
+        null
     }
 
     App(config, batchMetricsService)
