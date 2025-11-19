@@ -6,12 +6,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -27,40 +23,30 @@ class BatchMetricsService(
     private val limit: Int = 100,
     private val interval: Duration = 60.seconds) {
 
-    private val semaphore = Semaphore(1)
-    private val metricsChannel = Channel<MetricData>()
+    private val metricsChannel = Channel<MetricData>(1000)
 
     suspend fun addMetric(metricData: MetricData) = coroutineScope {
         metricsChannel.send(metricData)
     }
 
-    suspend fun process() = withContext<Unit>(dispatcher) {
+    tailrec suspend fun process() {
         val buffer = mutableListOf<MetricData>()
 
-        launch {
-            while (isActive) {
-                delay(interval)
+        withContext<Unit>(dispatcher) {
+            withTimeoutOrNull(interval) {
+                for (metric in metricsChannel) {
+                    buffer.add(metric)
 
-                sendMetricsAndClearBuffer(buffer)
-            }
-        }
-
-        launch {
-            for (metric in metricsChannel) {
-                buffer.add(metric)
-
-                if (buffer.size == limit) {
-                    sendMetricsAndClearBuffer(buffer)
+                    if (buffer.size == limit) {
+                        break
+                    }
                 }
             }
         }
-    }
 
-    private suspend fun sendMetricsAndClearBuffer(buffer: MutableList<MetricData>) {
-        semaphore.withPermit {
-            sendMetrics(buffer)
-            buffer.clear()
-        }
+        sendMetrics(buffer)
+
+        process()
     }
 
     private suspend fun sendMetrics(metrics: MutableList<MetricData>) {

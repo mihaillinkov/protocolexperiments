@@ -6,10 +6,10 @@ import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger(MetricsService::class.java)
 
-class MetricsService(token: String) {
+class MetricsService(url: String, token: String) {
 
     private val client = InfluxDBClientKotlinFactory.create(
-        url = "http://localhost:8086",
+        url = url,
         token = token.toCharArray(),
         org = "test",
         bucket = "test-bucket"
