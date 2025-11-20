@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
@@ -37,7 +38,7 @@ class App(
 
     fun addHandler(path: String, method: RequestMethod, handler: RequestHandler): App {
         return this.apply {
-            handlers[RequestKey(path.lowercase(), method)] = handler
+            handlers[RequestKey.create(path, method)] = handler
         }
     }
 
@@ -46,7 +47,7 @@ class App(
         val processor = RequestProcessor(config, requestFactory, handlers)
 
         val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port), config.socketBacklogSize)
-        logger.info("Application started on port {}, parallelRequestLimit: {}", config.port, config.parallelRequestLimit)
+        logger.info("Application started on port {}", config.port)
 
         batchMetricsService?.let {
             launch {
@@ -55,31 +56,37 @@ class App(
         }
 
         serverChannel.use { server ->
-            while (true) {
-                val socket = server.acceptAwait()
-                val receivedAt = Clock.System.now()
+            supervisorScope {
+                while (true) {
+                    val socket = server.acceptAwait()
+                    val startedAt = Clock.System.now()
 
-                launch(Dispatchers.Default) {
-                    val processingDuration = measureTime {
-                        processor.processRequest(socket)
+                    launch(Dispatchers.Default) {
+                        val processingDuration = measureTime {
+                            processor.processRequest(socket)
+                        }
+
+                        batchMetricsService?.let {
+                            val totalTime = Clock.System.now() - startedAt
+
+                            it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
+                            it.addMetric(MetricData("processingTime", processingDuration.toDouble(DurationUnit.MILLISECONDS)))
+                        }
                     }
-                    batchMetricsService?.let {
-                        val totalTime = Clock.System.now() - receivedAt
-
-                        it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
-                        it.addMetric(MetricData("processingTime", processingDuration.toDouble(DurationUnit.MILLISECONDS)))
-                    }
-
                 }
             }
         }
     }
 }
 
-data class RequestKey(
+data class RequestKey private constructor(
     val url: String,
-    val method: RequestMethod)
+    val method: RequestMethod) {
 
+    companion object {
+        fun create(url: String, method: RequestMethod) = RequestKey(url.lowercase(), method)
+    }
+}
 
 class RequestProcessor(
     val config: Config,
@@ -98,7 +105,7 @@ class RequestProcessor(
     private suspend fun process(socket: AsynchronousSocketChannel): HttpResponse {
         return try {
             val request = requestFactory.createRequest(socket)
-            val handler = handlers[RequestKey(request.url, request.method)]
+            val handler = handlers[RequestKey.create(request.url, request.method)]
 
             handler?.handle(request) ?: HttpResponse(status = ResponseStatus.notFound())
         } catch (e: CancellationException) {

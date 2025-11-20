@@ -2,11 +2,14 @@ package http.metrics
 
 import com.influxdb.client.domain.WritePrecision
 import com.influxdb.client.write.Point
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import kotlin.time.Clock
@@ -17,41 +20,44 @@ import kotlin.time.Instant
 
 private val logger = LoggerFactory.getLogger(BatchMetricsService::class.java)
 
+private const val METRICS_CHANNEL_CAPACITY = 1000
+
 class BatchMetricsService(
-    private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
     private val metricsService: MetricsService,
-    private val limit: Int = 100,
+    private val limit: Int = 500,
     private val interval: Duration = 60.seconds) {
 
-    private val metricsChannel = Channel<MetricData>(1000)
+    private val metricsChannel = Channel<MetricData>(METRICS_CHANNEL_CAPACITY)
 
     suspend fun addMetric(metricData: MetricData) = coroutineScope {
         metricsChannel.send(metricData)
     }
 
     tailrec suspend fun process() {
-        val buffer = mutableListOf<MetricData>()
+        val metrics = mutableListOf<MetricData>()
 
-        withContext<Unit>(dispatcher) {
-            withTimeoutOrNull(interval) {
-                for (metric in metricsChannel) {
-                    buffer.add(metric)
+        withTimeoutOrNull(interval) {
+            for (metric in metricsChannel) {
+                metrics.add(metric)
 
-                    if (buffer.size == limit) {
-                        break
-                    }
+                if (metrics.size == limit) {
+                    break
                 }
             }
         }
 
-        sendMetrics(buffer)
+        CoroutineScope(Job()).launch {
+            sendMetrics(metrics)
+        }
 
         process()
     }
 
-    private suspend fun sendMetrics(metrics: MutableList<MetricData>) {
+    private suspend fun sendMetrics(metrics: List<MetricData>) {
         try {
             metricsService.sendMetrics(metrics.map { it.toPoint() })
+        } catch (cancellationException: CancellationException) {
+            throw cancellationException
         } catch (e: Exception) {
             logger.error("Can't send metrics", e)
         }
