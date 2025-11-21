@@ -2,7 +2,7 @@ package http
 
 private const val DEFAULT_PORT = 8080
 private const val DEFAULT_REQUEST_TIMEOUT = 2000
-private const val DEFAULT_PARALLEL_REQUEST_LIMIT = 15
+private const val DEFAULT_PARALLEL_REQUEST_LIMIT = 16
 private const val DEFAULT_SOCKET_BACKLOG_LIMIT = 50
 
 fun buildConfig(
