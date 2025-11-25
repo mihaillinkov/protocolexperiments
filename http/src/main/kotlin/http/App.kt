@@ -12,7 +12,6 @@ import http.request.RequestFactory
 import http.request.RequestMethod
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -24,8 +23,10 @@ import java.nio.channels.AsynchronousServerSocketChannel
 import java.nio.channels.AsynchronousSocketChannel
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 import kotlin.time.measureTime
 
 
@@ -62,30 +63,27 @@ class App(
                 semaphore.acquire()
                 val socket = server.acceptAwait()
                 val startedAt = Clock.System.now()
-                requestProcessorScope.launch(Dispatchers.Default) {
+                requestProcessorScope.launch {
                     try {
-                        val processingDuration = measureTime {
-                            processor.processRequest(socket)
-                        }
+                        socket.use {
+                            val processingDuration = measureTime {
+                                processor.processRequest(socket)
+                            }
 
-                        metricsService?.let {
-                            val totalTime = Clock.System.now() - startedAt
-
-                            it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
-                            it.addMetric(
-                                MetricData(
-                                    "processingTime",
-                                    processingDuration.toDouble(DurationUnit.MILLISECONDS)
-                                )
-                            )
+                            metricsService?.sendMetrics(startedAt, processingDuration)
                         }
                     } finally {
                         semaphore.release()
                     }
                 }
             }
-
         }
+    }
+
+    private suspend fun BatchMetricsService.sendMetrics(startedAt: Instant, processingDuration: Duration) {
+        val totalTime = Clock.System.now() - startedAt
+        addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
+        addMetric(MetricData("processingTime", processingDuration.toDouble(DurationUnit.MILLISECONDS)))
     }
 }
 
