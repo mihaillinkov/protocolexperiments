@@ -4,7 +4,6 @@ import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousSocketChannel
 
-private const val BUFFER_CAPACITY = 256
 private const val INITIAL_BUFFER_CAPACITY = 20
 private val LINE_BREAK = "\r\n".toByteArray()
 
@@ -12,8 +11,8 @@ interface ByteStream: Closeable {
     suspend fun next(): Byte
 }
 
-fun createByteStream(channel: AsynchronousSocketChannel) = object: ByteStream {
-    private val buffer = ByteBuffer.allocate(BUFFER_CAPACITY).limit(0)
+fun createByteStream(channel: AsynchronousSocketChannel, readBufferCapacity: Int) = object: ByteStream {
+    private val buffer = ByteBuffer.allocate(readBufferCapacity).limit(0)
 
     override tailrec suspend fun next(): Byte {
         if (buffer.hasRemaining()) {

@@ -15,6 +15,7 @@ import io.kotest.matchers.collections.shouldBeOneOf
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -27,12 +28,9 @@ import java.nio.channels.CompletionHandler
 
 class RequestTest: FunSpec({
     lateinit var socketChannel: AsynchronousSocketChannel
-    lateinit var requestFactory: RequestFactory
-
+    val requestFactory = RequestFactory(readBufferCapacity = 10)
 
     beforeTest {
-        requestFactory = RequestFactory()
-
         socketChannel = mockk()
         mockkStatic(socketChannel::readAwait)
     }
@@ -54,7 +52,10 @@ class RequestTest: FunSpec({
         request.method shouldBe GET
         request.url shouldBe "/test"
         request.body shouldBe body.toByteArray(Charsets.UTF_8)
-        request.headers shouldContainExactlyInAnyOrder listOf(Header("content-length", "4"), Header("test-header-1", "test-1"))
+        request.headers shouldContainExactlyInAnyOrder listOf(
+            Header("content-length", "4"), Header("test-header-1", "test-1"))
+
+        coVerify(exactly = 7) { socketChannel.readAwait(any()) }
     }
 
     test("buildRequestObject should throw BadRequest when unsupported request method") {
@@ -109,7 +110,7 @@ fun mockSocketChannelRead(socketChannel: AsynchronousSocketChannel, bytes: ByteA
     }
 }
 
-fun readMock(bytes: ByteArray): (ByteBuffer, CompletionHandler<Int, Any?>) -> Unit {
+private fun readMock(bytes: ByteArray): (ByteBuffer, CompletionHandler<Int, Any?>) -> Unit {
     var offset = 0
 
     return { buffer, completionHandler ->
