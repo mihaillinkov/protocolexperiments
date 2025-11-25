@@ -13,10 +13,9 @@ import http.request.RequestMethod
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
@@ -34,13 +33,12 @@ private val logger = LoggerFactory.getLogger(App::class.java)
 
 class App(
     private val config: Config,
-    private val batchMetricsService: BatchMetricsService? = null) {
+    private val metricsService: BatchMetricsService? = null,
+    private val requestProcessorScope: CoroutineScope) {
 
     private val handlers = mutableMapOf<RequestKey, RequestHandler>()
     private val requestFactory = RequestFactory()
     private val semaphore = Semaphore(config.parallelRequestLimit)
-
-    private val requestProcessorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     fun addHandler(path: String, method: RequestMethod, handler: RequestHandler): App {
         return this.apply {
@@ -52,45 +50,41 @@ class App(
     suspend fun start() = coroutineScope<Unit> {
         val processor = RequestProcessor(config, requestFactory, handlers)
 
-        val serverChannel = AsynchronousServerSocketChannel.open().bind(InetSocketAddress(config.port), config.socketBacklogSize)
+        val serverChannel = AsynchronousServerSocketChannel.open()
+            .bind(InetSocketAddress(config.port), config.socketBacklogSize)
         logger.info("Application started on port {}", config.port)
 
-        batchMetricsService?.let {
-            launch {
-                it.process()
-            }
-        }
+
+        metricsService?.runProcessing(this)
 
         serverChannel.use { server ->
-            supervisorScope {
-                while (true) {
-                    semaphore.acquire()
-                    val socket = server.acceptAwait()
-                    val startedAt = Clock.System.now()
-
-                    requestProcessorScope.launch(Dispatchers.Default) {
-                        try {
-                            val processingDuration = measureTime {
-                                processor.processRequest(socket)
-                            }
-
-                            batchMetricsService?.let {
-                                val totalTime = Clock.System.now() - startedAt
-
-                                it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
-                                it.addMetric(
-                                    MetricData(
-                                        "processingTime",
-                                        processingDuration.toDouble(DurationUnit.MILLISECONDS)
-                                    )
-                                )
-                            }
-                        } finally {
-                            semaphore.release()
+            while (isActive) {
+                semaphore.acquire()
+                val socket = server.acceptAwait()
+                val startedAt = Clock.System.now()
+                requestProcessorScope.launch(Dispatchers.Default) {
+                    try {
+                        val processingDuration = measureTime {
+                            processor.processRequest(socket)
                         }
+
+                        metricsService?.let {
+                            val totalTime = Clock.System.now() - startedAt
+
+                            it.addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
+                            it.addMetric(
+                                MetricData(
+                                    "processingTime",
+                                    processingDuration.toDouble(DurationUnit.MILLISECONDS)
+                                )
+                            )
+                        }
+                    } finally {
+                        semaphore.release()
                     }
                 }
             }
+
         }
     }
 }

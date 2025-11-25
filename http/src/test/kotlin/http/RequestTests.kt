@@ -25,76 +25,75 @@ import java.nio.channels.AsynchronousSocketChannel
 import java.nio.channels.CompletionHandler
 
 
-class RequestTest: FunSpec() {
+class RequestTest: FunSpec({
     lateinit var socketChannel: AsynchronousSocketChannel
     lateinit var requestFactory: RequestFactory
 
-    init {
-        beforeTest {
-            requestFactory = RequestFactory()
 
-            socketChannel = mockk()
-            mockkStatic(socketChannel::readAwait)
-        }
+    beforeTest {
+        requestFactory = RequestFactory()
 
-        afterTest {
-            unmockkStatic(socketChannel::readAwait)
-        }
+        socketChannel = mockk()
+        mockkStatic(socketChannel::readAwait)
+    }
 
-        test("buildRequestObject test") {
-            val body = "test"
+    afterTest {
+        unmockkStatic(socketChannel::readAwait)
+    }
 
-            mockSocketChannelRead(socketChannel, ("GET /test HTTP/1.1\r\n" +
-                    "test-header-1: test-1\r\n" +
-                    "Content-Length: 4\r\n\r\n" +
-                    body).toByteArray(Charsets.UTF_8))
+    test("buildRequestObject test") {
+        val body = "test"
 
-            val request = requestFactory.createRequest(socketChannel)
+        mockSocketChannelRead(socketChannel, ("GET /test HTTP/1.1\r\n" +
+                "test-header-1: test-1\r\n" +
+                "Content-Length: 4\r\n\r\n" +
+                body).toByteArray(Charsets.UTF_8))
 
-            request.method shouldBe GET
-            request.url shouldBe "/test"
-            request.body shouldBe body.toByteArray(Charsets.UTF_8)
-            request.headers shouldContainExactlyInAnyOrder listOf(Header("content-length", "4"), Header("test-header-1", "test-1"))
-        }
+        val request = requestFactory.createRequest(socketChannel)
 
-        test("buildRequestObject should throw BadRequest when unsupported request method") {
-            mockSocketChannelRead(socketChannel, "FAILED-METHOD /test HTTP/1.1\r\n\r\n".toByteArray(Charsets.UTF_8))
+        request.method shouldBe GET
+        request.url shouldBe "/test"
+        request.body shouldBe body.toByteArray(Charsets.UTF_8)
+        request.headers shouldContainExactlyInAnyOrder listOf(Header("content-length", "4"), Header("test-header-1", "test-1"))
+    }
 
-            shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
-                .message shouldBe "Unsupported http method FAILED-METHOD, should be one of [GET, POST, PUT, DELETE]"
-        }
+    test("buildRequestObject should throw BadRequest when unsupported request method") {
+        mockSocketChannelRead(socketChannel, "FAILED-METHOD /test HTTP/1.1\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-        test("buildRequestObject should throw BadRequest when invalid startline") {
-            val invalidStartLine = "GET HTTP/1.1"
-            mockSocketChannelRead(socketChannel, "$invalidStartLine\r\n\r\n".toByteArray(Charsets.UTF_8))
+        shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
+            .message shouldBe "Unsupported http method FAILED-METHOD, should be one of [GET, POST, PUT, DELETE]"
+    }
 
-            shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
-                .message shouldBe "Invalid startline $invalidStartLine"
-        }
+    test("buildRequestObject should throw BadRequest when invalid startline") {
+        val invalidStartLine = "GET HTTP/1.1"
+        mockSocketChannelRead(socketChannel, "$invalidStartLine\r\n\r\n".toByteArray(Charsets.UTF_8))
 
-        test("buildRequestObject should throw CancellationException when stream ends") {
-            mockSocketChannelRead(socketChannel, "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8))
+        shouldThrow<BadRequest> { requestFactory.createRequest(socketChannel) }
+            .message shouldBe "Invalid startline $invalidStartLine"
+    }
 
-            shouldThrow<CancellationException> {
-                requestFactory.createRequest(socketChannel)
-            }
-        }
+    test("buildRequestObject should throw CancellationException when stream ends") {
+        mockSocketChannelRead(socketChannel, "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8))
 
-        context("getMethod test should return RequestMethod when valid") {
-            withData("get", "GET", "GeT", "POSt", "DELETE", "PUT") { method ->
-                val actualMethod = getMethod(method)
-                actualMethod shouldNotBe null
-                actualMethod shouldBeOneOf listOf(POST, GET, PUT, DELETE)
-            }
-        }
-
-        context("getMethod test should parse") {
-            withData("OPTION", "GETT", "Test", "INVALID") {
-                method -> getMethod(method) shouldBe null
-            }
+        shouldThrow<CancellationException> {
+            requestFactory.createRequest(socketChannel)
         }
     }
-}
+
+    context("getMethod test should return RequestMethod when valid") {
+        withData("get", "GET", "GeT", "POSt", "DELETE", "PUT") { method ->
+            val actualMethod = getMethod(method)
+            actualMethod shouldNotBe null
+            actualMethod shouldBeOneOf listOf(POST, GET, PUT, DELETE)
+        }
+    }
+
+    context("getMethod test should parse") {
+        withData("OPTION", "GETT", "Test", "INVALID") {
+            method -> getMethod(method) shouldBe null
+        }
+    }
+})
 
 fun mockSocketChannelRead(socketChannel: AsynchronousSocketChannel, bytes: ByteArray) {
     val mockFunc = readMock(bytes)
