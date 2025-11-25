@@ -4,7 +4,6 @@ import com.influxdb.client.domain.WritePrecision
 import com.influxdb.client.write.Point
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -23,7 +22,8 @@ private const val METRICS_CHANNEL_CAPACITY = 1000
 class BatchMetricsService(
     private val metricsService: MetricsService,
     private val limit: Int = 500,
-    private val interval: Duration = 60.seconds) {
+    private val interval: Duration = 60.seconds,
+    private val requestScope: CoroutineScope) {
 
     private val metricsChannel = Channel<MetricData>(METRICS_CHANNEL_CAPACITY)
 
@@ -31,7 +31,21 @@ class BatchMetricsService(
         metricsChannel.send(metricData)
     }
 
-    tailrec suspend fun process() {
+    fun runProcessing(scope: CoroutineScope) {
+        scope.launch {
+            while (true) {
+                val metrics = bufferMetrics(limit, interval)
+
+                requestScope.launch {
+                    withTimeoutOrNull(timeout = 2.seconds) {
+                        sendMetrics(metrics)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun bufferMetrics(limit: Int, interval: Duration): List<MetricData> {
         val metrics = mutableListOf<MetricData>()
 
         withTimeoutOrNull(interval) {
@@ -43,12 +57,7 @@ class BatchMetricsService(
                 }
             }
         }
-
-        CoroutineScope(Job()).launch {
-            sendMetrics(metrics)
-        }
-
-        process()
+        return metrics
     }
 
     private suspend fun sendMetrics(metrics: List<MetricData>) {
