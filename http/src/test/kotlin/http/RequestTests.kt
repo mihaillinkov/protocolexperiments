@@ -1,5 +1,6 @@
 package http
 
+import http.mock.mockSocketChannelRead
 import http.request.BadRequest
 import http.request.RequestMethod.DELETE
 import http.request.RequestMethod.GET
@@ -11,19 +12,14 @@ import http.request.getMethod
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
-import io.kotest.matchers.collections.shouldBeOneOf
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CancellationException
-import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousSocketChannel
-import java.nio.channels.CompletionHandler
 
 
 class RequestTest: FunSpec({
@@ -73,60 +69,31 @@ class RequestTest: FunSpec({
             .message shouldBe "Invalid startline $invalidStartLine"
     }
 
-    test("buildRequestObject should throw CancellationException when stream ends") {
+    test("buildRequestObject should throw BadRequest when stream ends") {
         mockSocketChannelRead(socketChannel, "GET /test HTTP/1.1".toByteArray(Charsets.UTF_8))
 
-        shouldThrow<CancellationException> {
+        shouldThrow<BadRequest> {
             requestFactory.createRequest(socketChannel)
         }
     }
 
     context("getMethod test should return RequestMethod when valid") {
-        withData("get", "GET", "GeT", "POSt", "DELETE", "PUT") { method ->
+        withData(
+            "get" to GET,
+            "GET" to GET,
+            "GeT" to GET,
+            "POSt" to POST,
+            "DELETE" to DELETE,
+            "PUT" to PUT) { (method, expected) ->
+
             val actualMethod = getMethod(method)
-            actualMethod shouldNotBe null
-            actualMethod shouldBeOneOf listOf(POST, GET, PUT, DELETE)
+            actualMethod shouldBe expected
         }
     }
 
-    context("getMethod test should parse") {
+    context("getMethod test should return null when invalid method name") {
         withData("OPTION", "GETT", "Test", "INVALID") {
             method -> getMethod(method) shouldBe null
         }
     }
 })
-
-fun mockSocketChannelRead(socketChannel: AsynchronousSocketChannel, bytes: ByteArray) {
-    val mockFunc = readMock(bytes)
-
-    every {
-        socketChannel.read(any<ByteBuffer>(), anyNullable<Any?>(), any<CompletionHandler<Int, Any?>>())
-    } answers { (_, scope) ->
-        val (args1, _, args3) = scope.args
-        val buffer = args1 as ByteBuffer
-        val handler = args3 as CompletionHandler<Int, Any?>
-
-        mockFunc(buffer, handler)
-    }
-}
-
-private fun readMock(bytes: ByteArray): (ByteBuffer, CompletionHandler<Int, Any?>) -> Unit {
-    var offset = 0
-
-    return { buffer, completionHandler ->
-        val bufferSize = buffer.limit()
-
-        val bytesToAddSize = minOf(bufferSize, bytes.size - offset)
-
-        val bytesToAdd = bytes.sliceArray(offset until  offset + bytesToAddSize)
-        buffer.put(bytesToAdd)
-
-        offset += bytesToAddSize
-
-        if (bytesToAddSize == 0) {
-            completionHandler.completed(-1, null)
-        } else {
-            completionHandler.completed(bytesToAddSize, null)
-        }
-    }
-}

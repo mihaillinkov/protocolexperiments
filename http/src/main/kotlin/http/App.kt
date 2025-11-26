@@ -48,7 +48,7 @@ class App(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun start() = coroutineScope<Unit> {
+    suspend fun startProcessing() = coroutineScope<Unit> {
         val processor = RequestProcessor(config, requestFactory, handlers)
 
         val serverChannel = AsynchronousServerSocketChannel.open()

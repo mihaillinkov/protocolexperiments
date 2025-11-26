@@ -30,5 +30,5 @@ fun main(vararg args: String) = runBlocking {
         .addHandler(path ="/test", method = RequestMethod.GET) {
             HttpResponse(ResponseStatus.ok(), "Test \uD83D\uDC24".toByteArray(Charsets.UTF_8))
         }
-        .start()
+        .startProcessing()
 }

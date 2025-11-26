@@ -1,5 +1,6 @@
 package http
 
+import http.request.BadRequest
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.nio.ByteBuffer
@@ -41,7 +42,7 @@ suspend fun AsynchronousSocketChannel.writeAwait(bytes: ByteArray) = suspendCanc
 suspend fun AsynchronousSocketChannel.readAwait(buffer: ByteBuffer) = suspendCancellableCoroutine { continuation ->
     val handler = completionHandler<Int, ByteArray>(continuation) { size, _ ->
         if (size == -1) {
-            continuation.cancel()
+            continuation.cancel(BadRequest("End of stream reached"))
         } else {
             buffer.flip()
             continuation.resume(size)

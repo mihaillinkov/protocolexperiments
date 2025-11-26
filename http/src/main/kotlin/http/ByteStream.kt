@@ -9,6 +9,7 @@ private val LINE_BREAK = "\r\n".toByteArray()
 
 interface ByteStream: Closeable {
     suspend fun next(): Byte
+    suspend fun next(size: Int): ByteArray
 }
 
 fun createByteStream(channel: AsynchronousSocketChannel, readBufferCapacity: Int) = object: ByteStream {
@@ -22,12 +23,16 @@ fun createByteStream(channel: AsynchronousSocketChannel, readBufferCapacity: Int
         return next()
     }
 
+    override suspend fun next(size: Int): ByteArray {
+        return ByteArray(size) { next() }
+    }
+
     override fun close() {
         channel.close()
     }
 }
 
-internal suspend fun ByteStream.readLine(): ByteArray {
+suspend fun ByteStream.readLine(): ByteArray {
     val bytes = ArrayList<Byte>(INITIAL_BUFFER_CAPACITY)
     var preLast: Byte = -1
     do {
