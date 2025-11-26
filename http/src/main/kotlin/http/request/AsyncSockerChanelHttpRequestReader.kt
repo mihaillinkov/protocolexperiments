@@ -16,7 +16,7 @@ class RequestFactory(private val readBufferCapacity: Int = BUFFER_CAPACITY) {
         val headers = headersBuilder.build(byteStream)
 
         val contentLength = headers.firstOrNull { it.name == "content-length" }?.value?.toIntOrNull() ?: 0
-        val body = if (contentLength > 0) bodyBuilder.build(byteStream, contentLength) else null
+        val body = bodyBuilder.build(byteStream, contentLength)
 
         return HttpRequest(
             method = startLine.method,

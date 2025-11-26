@@ -4,7 +4,7 @@ data class HttpRequest(
     val method: RequestMethod,
     val url: String,
     val headers: List<Header> = listOf(),
-    val body: ByteArray? = null
+    val body: ByteArray
 )
 
 enum class RequestMethod {
