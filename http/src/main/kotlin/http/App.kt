@@ -12,7 +12,8 @@ import http.request.RequestFactory
 import http.request.RequestMethod
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -35,7 +36,7 @@ private val logger = LoggerFactory.getLogger(App::class.java)
 class App(
     private val config: Config,
     private val metricsService: BatchMetricsService? = null,
-    private val requestProcessorScope: CoroutineScope) {
+    private val appScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())) {
 
     private val handlers = mutableMapOf<RequestKey, RequestHandler>()
     private val requestFactory = RequestFactory()
@@ -48,13 +49,13 @@ class App(
     }
 
     @OptIn(ExperimentalAtomicApi::class)
-    suspend fun startProcessing() = coroutineScope<Unit> {
+    fun start() = appScope.launch {
         val processor = RequestProcessor(config, requestFactory, handlers)
 
         val serverChannel = AsynchronousServerSocketChannel.open()
             .bind(InetSocketAddress(config.port), config.socketBacklogSize)
-        logger.info("Application started on port {}", config.port)
 
+        logger.info("Application started on port {}", config.port)
 
         metricsService?.runProcessing(this)
 
@@ -63,7 +64,7 @@ class App(
                 semaphore.acquire()
                 val socket = server.acceptAwait()
                 val startedAt = Clock.System.now()
-                requestProcessorScope.launch {
+                launch {
                     try {
                         socket.use {
                             val processingDuration = measureTime {
@@ -79,7 +80,6 @@ class App(
             }
         }
     }
-
     private suspend fun BatchMetricsService.sendMetrics(startedAt: Instant, processingDuration: Duration) {
         val totalTime = Clock.System.now() - startedAt
         addMetric(MetricData("totalTime", totalTime.toDouble(DurationUnit.MILLISECONDS)))
@@ -87,6 +87,7 @@ class App(
     }
 }
 
+@ConsistentCopyVisibility
 data class RequestKey private constructor(
     val url: String,
     val method: RequestMethod) {
