@@ -18,7 +18,6 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.CancellationException
 import java.nio.channels.AsynchronousSocketChannel
 
 

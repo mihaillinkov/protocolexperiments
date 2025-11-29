@@ -6,9 +6,8 @@ import http.request.RequestMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.runBlocking
 
-fun main(vararg args: String) = runBlocking {
+suspend fun main() {
     val config = buildConfig()
 
     val metricsUrl = System.getProperty("metrics.url", null)
@@ -25,10 +24,10 @@ fun main(vararg args: String) = runBlocking {
 
     App(
         config = config,
-        metricsService = batchMetricsService,
-        requestProcessorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        metricsService = batchMetricsService)
         .addHandler(path ="/test", method = RequestMethod.GET) {
             HttpResponse(ResponseStatus.ok(), "Test \uD83D\uDC24".toByteArray(Charsets.UTF_8))
         }
-        .startProcessing()
+        .start()
+        .join()
 }

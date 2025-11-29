@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import kotlin.time.Clock
@@ -21,8 +22,9 @@ private const val METRICS_CHANNEL_CAPACITY = 1000
 
 class BatchMetricsService(
     private val metricsService: MetricsService,
-    private val limit: Int = 500,
+    val limit: Int = 500,
     private val interval: Duration = 60.seconds,
+    private val timeout: Duration = 2.seconds,
     private val requestScope: CoroutineScope) {
 
     private val metricsChannel = Channel<MetricData>(METRICS_CHANNEL_CAPACITY)
@@ -37,7 +39,7 @@ class BatchMetricsService(
                 val metrics = bufferMetrics(limit, interval)
 
                 requestScope.launch {
-                    withTimeoutOrNull(timeout = 2.seconds) {
+                    withTimeout(timeout) {
                         sendMetrics(metrics)
                     }
                 }
